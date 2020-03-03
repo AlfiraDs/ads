@@ -10,7 +10,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import ParameterGrid
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
 
 
 class Feature(BaseEstimator, TransformerMixin):
@@ -92,7 +92,8 @@ class CatFeatureDescriptor(FeatureDescriptor):
         super().__init__(name, cols, wts)
         self.steps = [
             [(SimpleImputer, {'strategy': ['constant'], 'fill_value': [fill_value]})],
-            [(OneHotEncoder, {'sparse': [False], 'categories': [[categories + [fill_value]]]})],
+            # [(OneHotEncoder, {'sparse': [False], 'categories': [[categories + [fill_value]]]})],
+            [(OrdinalEncoder(), {'categories': [[categories + [fill_value]]]})],
             [(StandardScaler, {})],
         ]
 
@@ -142,11 +143,6 @@ def get_search_space_fit_features(feature_dir):
         wts = steps_space_dict['wts']
         features.append((name, Feature(name, cols)))
         fes_steps[f'fes__{name}__steps'] = steps_space
-        # for steps in steps_space:
-        #     x = data[cols]
-        #     for step in steps:
-        #         print(name, step)
-        #         x = step.fit_transform(x)
         weights.append(wts)
         names.append(name)
     fes_steps.update({'fes__transformer_weights': [dict(zip(names, comb)) for comb in itertools.product(*weights)]})

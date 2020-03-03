@@ -1,7 +1,7 @@
 import os
 from glob import glob
 import pandas as pd
-from ads.eda.eda import nan_stat
+from ads.utils.eda import nan_stat
 
 
 class Data:
