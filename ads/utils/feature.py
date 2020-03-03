@@ -93,7 +93,7 @@ class CatFeatureDescriptor(FeatureDescriptor):
         self.steps = [
             [(SimpleImputer, {'strategy': ['constant'], 'fill_value': [fill_value]})],
             # [(OneHotEncoder, {'sparse': [False], 'categories': [[categories + [fill_value]]]})],
-            [(OrdinalEncoder(), {'categories': [[categories + [fill_value]]]})],
+            [(OrdinalEncoder, {'categories': [[categories + [fill_value]]]})],
             [(StandardScaler, {})],
         ]
 
