@@ -44,7 +44,7 @@ class Feature(BaseEstimator, TransformerMixin):
             self.__setattr__(attr, val)
 
     def __repr__(self, **kwargs):
-        s = self.name + ":\n\t" + "\n\t".join([step.__repr__(N_CHAR_MAX=7000) for step in self.steps])
+        s = self.name + ":\n\t" + "\n\t".join([step.__repr__() for step in self.steps])
         return s
 
 
