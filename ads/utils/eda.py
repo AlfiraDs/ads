@@ -50,7 +50,8 @@ def _num_col_plots_classification(data, col, y):  # TODO complete the function
     sns.regplot(x=col, y=y.name, ax=ax[0, 0], data=data.iloc[:len(y)], scatter=False)
     cats = y.unique()
     for cat in cats:
-        sns.distplot(data.iloc[:len(y)].loc[y == cat][col], ax=ax[0, 1])
+        sns.distplot(data.iloc[:len(y)].loc[y == cat][col], ax=ax[0, 1], label=cat)
+    ax[0, 1].legend()
     text = f'Skewness: {data[col].dropna().skew():.2f}, Kurtosis: {data[col].dropna().kurt():.2f}'
     ax[0, 1].set_title(text)
     scipy.stats.probplot(data[col].dropna(), dist="norm", plot=ax[1, 0], fit=True, rvalue=True)
