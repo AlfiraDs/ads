@@ -50,7 +50,7 @@ def _num_col_plots_classification(data, col, y):  # TODO complete the function
     sns.regplot(x=col, y=y.name, ax=ax[0, 0], data=data.iloc[:len(y)], scatter=False)
     cats = y.unique()
     for cat in cats:
-        sns.distplot(data.iloc[:len(y)].loc[y == cat][col], ax=ax[0, 1], label=cat)
+        sns.distplot(data.iloc[:len(y)].loc[y == cat][col].dropna(), ax=ax[0, 1], label=cat)
     ax[0, 1].legend()
     text = f'Skewness: {data[col].dropna().skew():.2f}, Kurtosis: {data[col].dropna().kurt():.2f}'
     ax[0, 1].set_title(text)
@@ -59,10 +59,10 @@ def _num_col_plots_classification(data, col, y):  # TODO complete the function
     return fig
 
 
-def display_num_col_info(data, col, y, regression=True, n=1):
+def display_num_col_info(data, col, y, problem, n=1):
     current_backend = plt.get_backend()
     df = _num_col_describe(data, col)
-    if regression:
+    if problem == 'regression':
         fig = _num_col_plots_regression(data, col, y)
     else:
         fig = _num_col_plots_classification(data, col, y)
@@ -84,7 +84,7 @@ def display_num_col_info(data, col, y, regression=True, n=1):
     plt.switch_backend(current_backend)
 
 
-def display_cat_col_info(data, col, y, n=1):
+def display_cat_col_info(data, col, y, problem, n=1):
     current_backend = plt.get_backend()
     df = pd.DataFrame()
     df.loc["dtype", col] = data[col].dtype
@@ -118,7 +118,7 @@ def display_cat_col_info(data, col, y, n=1):
     plt.switch_backend(current_backend)
 
 
-def custom_describe(df: pd.DataFrame, y: pd.Series, skip_cols: Iterable = None, var_types: dict = None):
+def custom_describe(df: pd.DataFrame, y: pd.Series, problem, skip_cols: Iterable = None, var_types: dict = None):
     """
     :param df:
     :param y:
@@ -135,13 +135,19 @@ def custom_describe(df: pd.DataFrame, y: pd.Series, skip_cols: Iterable = None, 
         if skip_cols and col in skip_cols:
             continue
         n += 1
-        display_num_col_info(df, col, y, n)
+        try:
+            display_num_col_info(df, col, y, problem, n)
+        except:
+            print(f'Failed to render {col}')
 
     for col in [col for col, tp in col2type.items() if tp == 'cat']:
         if skip_cols and col in skip_cols:
             continue
         n += 1
-        display_cat_col_info(df, col, y, n)
+        try:
+            display_cat_col_info(df, col, y, problem, n)
+        except:
+            print(f'Failed to render {col}')
 
 
 def unique_columns(data, dropna=False):
@@ -192,3 +198,21 @@ def nans_plot(nan_column, data):
 
 def nan_stat(data):
     return f'{100 * data.isna().values.sum() / data.size:.2f}% of the data is missing'
+
+
+def correlation_heatmap(data: pd.DataFrame, target: pd.Series, lower=0.1, upper=1.0):
+    df = pd.concat([data, target], axis=1)
+    ordered_cols = df.corr().abs()[target.name].sort_values(ascending=False).index
+    # ordered_cols = df.corr().abs().mean(axis=0).sort_values(ascending=False).index
+    corr = df.loc[:, ordered_cols].corr()
+    # fig, ax = plt.subplots(1, 1, figsize=(15, 8))
+    # sns.heatmap(corr, annot=True, annot_kws={"size": 25}, fmt='.1f', cmap='PiYG', lidths=.5)
+    # corr = data.corr()
+    sns.set(font_scale=2)
+    plt.figure(figsize=(50, 35))
+    sns.heatmap(corr, annot=True, annot_kws={"size": 25}, fmt='.1f', cmap='PiYG', linewidths=.5)
+    important_cols = df.corr().abs()[target.name]
+    important_cols = set(important_cols.loc[(important_cols >= lower) & (important_cols <= upper)].index)
+    important_cols -= set(target.name)
+    return plt, important_cols
+

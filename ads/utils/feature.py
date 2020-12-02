@@ -1,4 +1,5 @@
 import glob
+import inspect
 import itertools
 import os
 import sys
@@ -7,10 +8,11 @@ from itertools import product
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import ParameterGrid
-from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder, MinMaxScaler
 
 
 class Feature(BaseEstimator, TransformerMixin):
@@ -28,15 +30,21 @@ class Feature(BaseEstimator, TransformerMixin):
     def fit(self, x, y=None):
         transformed = x[self.cols].copy()
         for step in self.steps:
-            transformed = step.fit_transform(transformed, y)
+            if len(inspect.getfullargspec(step.fit_transform).args) > 2:
+                transformed = step.fit_transform(transformed, y)
+            else:
+                transformed = step.fit_transform(transformed)
         return self
 
     def transform(self, x):
         transformed = x[self.cols].copy()
         for step in self.steps:
             transformed = step.transform(transformed)
-        assert np.isnan(transformed).sum() == 0, "Transformed contains nan"
-        assert np.isinf(transformed).sum() == 0, "Transformed contains inf"
+            if len(transformed.shape) != 2:
+                transformed = transformed.reshape(-1, 1)
+        assert pd.isna(transformed).sum() == 0, "Transformed contains nan"
+        assert pd.isna(
+            pd.DataFrame(transformed).replace([np.inf, -np.inf], np.nan)).sum().sum() == 0, "Transformed contains inf"
         return transformed.astype(self.dtype)
 
     def set_params(self, **kwargs):
@@ -53,7 +61,7 @@ class FeatureDescriptor:
         self.name = name
         self.cols = cols
         self.wts = wts
-        self._steps = None
+        self._steps = []
 
     def __process_step(self, items):
         ret = []
@@ -95,6 +103,7 @@ class CatFeatureDescriptor(FeatureDescriptor):
             # [(OneHotEncoder, {'sparse': [False], 'categories': [[categories + [fill_value]]]})],
             [(OrdinalEncoder, {'categories': [[categories + [fill_value]]]})],
             [(StandardScaler, {})],
+            # [(MinMaxScaler, {})],
         ]
 
 
@@ -149,10 +158,10 @@ def get_search_space_fit_features(feature_dir):
     return features, fes_steps
 
 
-def fit_transform_feature(name, data, fe_dir):
-    fe_file = glob.glob(os.path.join(fe_dir, '*', f'{name}.py'))[0]
+def fit_transform_feature(feature_name, data, feature_dir):
+    fe_file = list(Path(feature_dir).rglob(f'{feature_name}.py'))[0]
     feature_module = get_feature_as_module(fe_file)
     steps = get_steps_space(feature_module)['steps_space'][0]
-    feature = Feature(name=name, steps=steps)
+    feature = Feature(name=feature_name, steps=steps)
     x = feature.fit_transform(data)
     return x

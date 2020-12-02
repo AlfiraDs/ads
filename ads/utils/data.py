@@ -1,5 +1,7 @@
 import os
 from glob import glob
+from typing import Iterable
+
 import pandas as pd
 from ads.utils.eda import nan_stat
 
@@ -10,16 +12,19 @@ class Data:
                  target_col: str = 'tgt',
                  train_file_kwd: str = 'train',
                  test_file_kwd: str = 'test',
-                 dtype: dict = None
+                 dtype: dict = None,
+                 drop_rows: Iterable = None
                  ):
         data_dir = data_dir if data_dir is not None else os.path.join(os.getcwd(), 'data')
         train_file = glob(os.path.join(data_dir, f'*{train_file_kwd}*'))[0]
         test_file = glob(os.path.join(data_dir, f'*{test_file_kwd}*'))[0]
+        self._drop_rows = drop_rows
         self._nans = [None, "None", '?']
         self._dtype = dtype
         self._train = self.__read_csv(train_file)
+        self._train = self._train.drop(self._drop_rows, axis=0, errors='warn')
         self._test = self.__read_csv(test_file)
-        self._data = pd.concat([self.train, self.test], sort=False)
+        self._data = pd.concat([self.train, self.test])
         self._y = self.train[target_col]
         self._train = self._train.drop(target_col, axis=1)
         print("train:", self.train.shape)
