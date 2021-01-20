@@ -36,7 +36,7 @@ def _num_col_plots_regression(data, col, y):
     sns.scatterplot(x=data.iloc[:len(y)][col], y=y, ax=ax[0, 0])
     sns.regplot(x=data.iloc[:len(y)][col], y=y, ax=ax[0, 0], scatter=False)
     # ax[0, 0].set_title(scipy.stats.pearsonr(data.iloc[:len(y)][col], y))  # TODO add correlation coefficient
-    sns.distplot(data[col].dropna(), ax=ax[0, 1])
+    sns.histplot(data[col].dropna(), ax=ax[0, 1])
     text = f'Skewness: {data[col].dropna().skew():.2f}, Kurtosis: {data[col].dropna().kurt():.2f}'
     ax[0, 1].set_title(text)
     scipy.stats.probplot(data[col].dropna(), dist="norm", plot=ax[1, 0], fit=True, rvalue=True)
@@ -50,7 +50,7 @@ def _num_col_plots_classification(data, col, y):  # TODO complete the function
     sns.regplot(x=col, y=y.name, ax=ax[0, 0], data=data.iloc[:len(y)], scatter=False)
     cats = y.unique()
     for cat in cats:
-        sns.distplot(data.iloc[:len(y)].loc[y == cat][col].dropna(), ax=ax[0, 1], label=cat)
+        sns.histplot(data.iloc[:len(y)].loc[y == cat][col].dropna(), ax=ax[0, 1], label=cat)
     ax[0, 1].legend()
     text = f'Skewness: {data[col].dropna().skew():.2f}, Kurtosis: {data[col].dropna().kurt():.2f}'
     ax[0, 1].set_title(text)
@@ -62,6 +62,7 @@ def _num_col_plots_classification(data, col, y):  # TODO complete the function
 def display_num_col_info(data, col, y, problem, n=1):
     current_backend = plt.get_backend()
     df = _num_col_describe(data, col)
+    # pd.set_option('max_colwidth', 40)
     if problem == 'regression':
         fig = _num_col_plots_regression(data, col, y)
     else:
@@ -76,7 +77,7 @@ def display_num_col_info(data, col, y, problem, n=1):
         <table>
             <tr>
                 <td><img src='data:image/png;base64,{encoded}'></td>
-                <td>{df.to_html()}<td/>
+                <td width="60%">{df.to_html()}<td/>
             </tr>
         """
     plt.switch_backend('Agg')
@@ -95,8 +96,8 @@ def display_cat_col_info(data, col, y, problem, n=1):
     df.loc["vals", col] = vals
 
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(9, 5))
-    medians = data.iloc[:len(y)].groupby([col])[y.name].median().sort_values(ascending=False)
-    counts = data.iloc[:len(y)].groupby([col])[y.name].count().sort_values(ascending=False)
+    medians = y.groupby(data[col].iloc[:len(y)]).median().sort_values(ascending=False)
+    counts = y.groupby(data[col].iloc[:len(y)]).count().sort_values(ascending=False)
     ax[0, 0].set_ylabel('median')
     sns.barplot(x=medians.index, y=medians.values, ax=ax[0, 0], order=medians.index)
     sns.countplot(x=col, data=data, ax=ax[0, 1], order=counts.index)
@@ -169,31 +170,46 @@ def plot_continuous_distribution(a):
     print("Skewness:", a.skew())
     print("Kurtosis", a.kurt())
     fig, ax = plt.subplots(1, 1, figsize=(20, 5))
-    sns.distplot(a, kde=False)
+    sns.histplot(a, kde=False)
 
 
-def nans_plot(nan_column, data):
+def nans_plot(data, nan_column=None):
     df = pd.DataFrame(columns=["row", "col", "val"])
-    cols_to_show = data.columns[data.isna().sum(axis=0) > 0]
-    rows_to_show = data[nan_column].isna()
-    cases = {
-        "NA Values": data.loc[rows_to_show, cols_to_show].isin([None, np.nan]).values,
-        "Empty String": (data == "").values,
-        "-1": (data == -1).values
-    }
-    for case_name, case_vals in cases.items():
-        tmp_df = pd.DataFrame()
-        tmp_df["row"] = np.nonzero(case_vals)[0]
-        tmp_df["col"] = cols_to_show[np.nonzero(case_vals)[1]]
-        tmp_df["val"] = case_name
-        df = pd.concat([df, tmp_df])
+    if nan_column:
+        cols_to_show = data.columns[data.isna().sum(axis=0) > 0]
+        rows_to_show = data[nan_column].isna()
+        cases = {
+            "NA Values": data.loc[rows_to_show, cols_to_show].isin([None, np.nan]).values,
+            "Empty String": (data == "").values,
+            "-1": (data == -1).values
+        }
+        for case_name, case_vals in cases.items():
+            tmp_df = pd.DataFrame()
+            tmp_df["row"] = np.nonzero(case_vals)[0]
+            tmp_df["col"] = cols_to_show[np.nonzero(case_vals)[1]]
+            tmp_df["val"] = case_name
+            df = pd.concat([df, tmp_df])
 
-    df["cnt"] = df.col.map(df.col.value_counts())
-    df = df.sort_values(by=["cnt", "col"], ascending=False)
-    fig, ax = plt.subplots(figsize=(20, 10))
-    sns.scatterplot("col", "row", data=df, ax=ax)
-    new_labels = ["%s: %d" % (col, cnt) for col, cnt in df.col.value_counts().sort_values(ascending=False).iteritems()]
-    ax.set_xticklabels(new_labels, rotation=60, fontsize=12)
+        df["cnt"] = df.col.map(df.col.value_counts())
+        df = df.sort_values(by=["cnt", "col"], ascending=False)
+        fig, ax = plt.subplots(figsize=(20, 10))
+        sns.scatterplot(x="col", y="row", data=df, ax=ax)
+        new_labels = ["%s: %d" % (col, cnt) for col, cnt in df.col.value_counts().sort_values(ascending=False).iteritems()]
+        ax.set_xticklabels(new_labels, rotation=60, fontsize=12)
+    else:
+        df['row'] = np.repeat(range(data.shape[0]), data.shape[1])
+        df['col'] = np.tile(range(data.shape[1]), data.shape[0])
+        df['val'] = pd.isna(data.values.ravel())
+        new_labels = []
+        for col in data.columns:
+            nan_cnt = pd.isna(data[col]).sum()
+            nan_rate = round(nan_cnt * 100/ data.shape[0], 1)
+            label = f'{col}: {nan_cnt} / {nan_rate}%'
+            new_labels.append(label)
+        fig, ax = plt.subplots(figsize=(25, 20))
+        sns.scatterplot(x="row", y="col", data=df, ax=ax, hue='val')
+        ax.set_yticks(range(data.shape[1]))
+        ax.set_yticklabels(new_labels, rotation=0, fontsize=10)
 
 
 def nan_stat(data):
@@ -216,3 +232,24 @@ def correlation_heatmap(data: pd.DataFrame, target: pd.Series, lower=0.1, upper=
     important_cols -= set(target.name)
     return plt, important_cols
 
+
+def cols_info_df(data):
+    df = pd.DataFrame(index=data.columns)
+    for col in data.columns:
+        df.loc[col, 'type'] = data[col].dtype
+        df.loc[col, 'len'] = data.shape[0]
+        df.loc[col, '#unique'] = data[col].nunique()
+        df.loc[col, '%unique'] = round(df.loc[col, '#unique'] / df.loc[col, 'len'], 2)
+        df.loc[col, '#nans'] = pd.isna(data[col]).sum()
+        df.loc[col, '%nans'] = round(df.loc[col, '#nans'] * 100 / df.loc[col, 'len'], 1)
+        df.loc[col, '%values'] = str(data[col].value_counts(normalize=True, dropna=False).round(2).to_dict())
+        df.loc[col, 'used'] = False
+        df.loc[col, 'reason'] = None
+    return df
+
+
+def is_121_mapped(data, col1, col2):
+    unique = data[[col1, col2]].drop_duplicates()
+    col1_to_col2 = dict(zip(unique[col1].values, unique[col2].values))
+    ret = data[col1].map(col1_to_col2) == data[col2]
+    return ret.sum() == data.shape[0]
