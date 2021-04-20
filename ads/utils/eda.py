@@ -253,3 +253,26 @@ def is_121_mapped(data, col1, col2):
     col1_to_col2 = dict(zip(unique[col1].values, unique[col2].values))
     ret = data[col1].map(col1_to_col2) == data[col2]
     return ret.sum() == data.shape[0]
+
+
+
+def correlation_matrix(df: pd.DataFrame):
+    """
+    A function to calculate and plot
+    correlation matrix of a DataFrame.
+    """
+    # Create the matrix
+    matrix = df.corr()
+
+    # Create cmap
+    cmap = sns.diverging_palette(250, 15, s=75, l=40,
+                                 n=9, center="light", as_cmap=True)
+    # Create a mask
+    mask = np.triu(np.ones_like(matrix, dtype=bool))
+
+    # Make figsize bigger
+    fig, ax = plt.subplots(figsize=(16, 12))
+
+    # Plot the matrix
+    _ = sns.heatmap(matrix, mask=mask, center=0, annot=True,
+                    fmt='.2f', square=True, cmap=cmap, ax=ax)
